@@ -144,6 +144,26 @@ NB_NOINLINE inline bool unpack_timedelta(PyObject *o, int *days,
     return false;
 }
 
+NB_NOINLINE inline bool shift_to_timezone(PyObject *o, PyObject** shifted_o, PyObject* tz = Py_None) {
+    *shifted_o = nullptr;
+
+    datetime_types.ensure_ready();
+    if (!PyType_IsSubtype(Py_TYPE(o), (PyTypeObject*) datetime_types.datetime.ptr()) ||
+        PyObject_GetAttrString(o, "tzinfo") == Py_None) {
+        return true;
+    }
+
+    try {
+        handle shifted_datetime = borrow(o).attr("astimezone")(borrow(tz)).release();
+        *shifted_o = shifted_datetime.ptr();
+    } catch (python_error& e) {
+        e.restore();
+        return false;
+    }
+
+    return true;
+}
+
 NB_NOINLINE inline bool unpack_datetime(PyObject *o,
                                         int *year, int *month, int *day,
                                         int *hour, int *minute, int *second,
@@ -227,6 +247,30 @@ NB_NOINLINE inline bool unpack_timedelta(PyObject *o, int *days,
         return true;
     }
     return false;
+}
+
+NB_NOINLINE inline bool shift_to_timezone(PyObject *o, PyObject** shifted_o, PyObject* tz = Py_None) {
+    if (!PyDateTimeAPI) {
+        PyDateTime_IMPORT;
+        if (!PyDateTimeAPI)
+            raise_python_error();
+    }
+
+    *shifted_o = nullptr;
+
+    if (!PyDateTime_Check(o) || PyDateTime_DATE_GET_TZINFO(o) == Py_None) {
+        return true;
+    }
+
+    try {
+        handle shifted_datetime = borrow(o).attr("astimezone")(borrow(tz)).release();
+        *shifted_o = shifted_datetime.ptr();
+    } catch (python_error& e) {
+        e.restore();
+        return false;
+    }
+
+    return true;
 }
 
 NB_NOINLINE inline bool unpack_datetime(PyObject *o,
