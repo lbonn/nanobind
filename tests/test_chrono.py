@@ -8,6 +8,13 @@ import sys
 
 import pytest
 
+# tzset is unix-only but necessary after changing timezones
+try:
+    from time import tzset
+except ImportError:
+    def tzset():
+        pass
+
 
 def test_chrono_system_clock():
     # Get the time from both c++ and datetime
